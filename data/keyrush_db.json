@@ -1,0 +1,163 @@
+{
+  "users": [
+    {
+      "id": "KR-10001",
+      "name": "KeyRush Admin",
+      "email": "admin@keyrush.io",
+      "passwordHash": "7a48dd7ba5de4295665f5da2057fd11b54ba6c6877256bec0546d06d168afaea9c8e61afb77f16d753d68b6b003e9f696e4d7439a2fb67583ecf618c91a12bac",
+      "salt": "cff0392cd0d4a3819ad99a432fbcf71c",
+      "bio": "Official KeyRush Master Typist & Speed Benchmark Record Holder.",
+      "avatar": "default",
+      "authProvider": "email",
+      "createdAt": "7/23/2026",
+      "stats": {
+        "racesCompleted": 42,
+        "averageWpm": 124,
+        "maxWpm": 168,
+        "averageAccuracy": 98,
+        "recentRaces": [
+          {
+            "date": "2026-07-22",
+            "wpm": 142,
+            "accuracy": 99,
+            "language": "uz"
+          },
+          {
+            "date": "2026-07-21",
+            "wpm": 135,
+            "accuracy": 98,
+            "language": "en"
+          },
+          {
+            "date": "2026-07-20",
+            "wpm": 128,
+            "accuracy": 97,
+            "language": "code"
+          }
+        ]
+      }
+    },
+    {
+      "id": "KR-10002",
+      "name": "SpeedDemon",
+      "email": "speed@keyrush.io",
+      "passwordHash": "7a48dd7ba5de4295665f5da2057fd11b54ba6c6877256bec0546d06d168afaea9c8e61afb77f16d753d68b6b003e9f696e4d7439a2fb67583ecf618c91a12bac",
+      "salt": "cff0392cd0d4a3819ad99a432fbcf71c",
+      "bio": "Mechanical keyboard enthusiast. Reached 150+ WPM on custom Lubed switches.",
+      "avatar": "⚡",
+      "authProvider": "google",
+      "createdAt": "2026-07-21",
+      "stats": {
+        "racesCompleted": 88,
+        "averageWpm": 138,
+        "maxWpm": 154,
+        "averageAccuracy": 99,
+        "recentRaces": []
+      }
+    },
+    {
+      "id": "KR-10003",
+      "name": "TypeNinja",
+      "email": "ninja@keyrush.io",
+      "passwordHash": "7a48dd7ba5de4295665f5da2057fd11b54ba6c6877256bec0546d06d168afaea9c8e61afb77f16d753d68b6b003e9f696e4d7439a2fb67583ecf618c91a12bac",
+      "salt": "cff0392cd0d4a3819ad99a432fbcf71c",
+      "bio": "Silent, swift, accurate. Touch-typing since 2018.",
+      "avatar": "🥷",
+      "authProvider": "discord",
+      "createdAt": "2026-07-20",
+      "stats": {
+        "racesCompleted": 64,
+        "averageWpm": 128,
+        "maxWpm": 142,
+        "averageAccuracy": 98,
+        "recentRaces": []
+      }
+    },
+    {
+      "id": "KR-10004",
+      "name": "CyberFingers",
+      "email": "cyber@keyrush.io",
+      "passwordHash": "7a48dd7ba5de4295665f5da2057fd11b54ba6c6877256bec0546d06d168afaea9c8e61afb77f16d753d68b6b003e9f696e4d7439a2fb67583ecf618c91a12bac",
+      "salt": "cff0392cd0d4a3819ad99a432fbcf71c",
+      "bio": "Coding at 130 WPM with Neovim shortcuts.",
+      "avatar": "🤖",
+      "authProvider": "telegram",
+      "createdAt": "2026-07-19",
+      "stats": {
+        "racesCompleted": 52,
+        "averageWpm": 122,
+        "maxWpm": 135,
+        "averageAccuracy": 97,
+        "recentRaces": []
+      }
+    },
+    {
+      "id": "KR-10005",
+      "name": "QuantumKeys",
+      "email": "quantum@keyrush.io",
+      "passwordHash": "7a48dd7ba5de4295665f5da2057fd11b54ba6c6877256bec0546d06d168afaea9c8e61afb77f16d753d68b6b003e9f696e4d7439a2fb67583ecf618c91a12bac",
+      "salt": "cff0392cd0d4a3819ad99a432fbcf71c",
+      "bio": "Typing enthusiast practicing 15 minutes every morning.",
+      "avatar": "🌌",
+      "authProvider": "email",
+      "createdAt": "2026-07-18",
+      "stats": {
+        "racesCompleted": 35,
+        "averageWpm": 115,
+        "maxWpm": 128,
+        "averageAccuracy": 98,
+        "recentRaces": []
+      }
+    },
+    {
+      "id": "KR-91077",
+      "name": "Vym",
+      "email": "maksudzonmukimov@gmail.com",
+      "passwordHash": "d1ceb13b8fd2b038d95784c0d1d011b272897a3523d67aff32bf6706b78a6237b4fb9ec96545480af32821f155da838d8b6149259645cc6f71dab6281c9346c8",
+      "salt": "f3670f9570e69fc6ed441467fcc154a9",
+      "bio": "Excited speed typist on KeyRush Engine!",
+      "avatar": "default",
+      "authProvider": "email",
+      "createdAt": "7/23/2026",
+      "stats": {
+        "racesCompleted": 0,
+        "averageWpm": 0,
+        "maxWpm": 0,
+        "averageAccuracy": 100,
+        "recentRaces": []
+      }
+    }
+  ],
+  "authLogs": [
+    {
+      "id": "LOG-1784817910106",
+      "userId": "KR-91077",
+      "userName": "Vym",
+      "userEmail": "maksudzonmukimov@gmail.com",
+      "authProvider": "email",
+      "action": "REGISTER",
+      "ip": "127.0.0.1",
+      "timestamp": "2026-07-23T14:45:10.106Z",
+      "status": "SUCCESS",
+      "details": "New account registered successfully."
+    },
+    {
+      "id": "LOG-1784817867175",
+      "userId": "KR-10001",
+      "userName": "KeyRush Admin",
+      "userEmail": "admin@keyrush.io",
+      "authProvider": "system",
+      "action": "REGISTER",
+      "ip": "127.0.0.1",
+      "timestamp": "2026-07-23T14:44:27.175Z",
+      "status": "SUCCESS",
+      "details": "System Database initialized with default admin and benchmark records."
+    }
+  ],
+  "sessions": {
+    "TOKEN-KR-91077-0c737f7d78e38daa05b72c8e6acc905062f38a1807b4b4d0": {
+      "userId": "KR-91077",
+      "createdAt": 1784817910106
+    }
+  }
+}
