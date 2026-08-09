@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -18,7 +18,13 @@ import {
   AlertCircle, 
   RotateCcw, 
   Award, 
-  TrendingUp
+  TrendingUp,
+  Share2,
+  Copy,
+  Check,
+  ExternalLink,
+  Send,
+  X
 } from 'lucide-react';
 import { GameStats, Achievement, THEME_STYLES } from '../types';
 import TroubleshootSection from './TroubleshootSection';
@@ -27,6 +33,7 @@ import GlobalLeaderboard from './GlobalLeaderboard';
 interface DashboardProps {
   stats: GameStats;
   onRestart: () => void;
+  onWatchReplay?: () => void;
   isMultiplayer?: boolean;
   achievements: Achievement[];
   recentRaces?: {
@@ -41,6 +48,7 @@ interface DashboardProps {
 export default function Dashboard({ 
   stats, 
   onRestart, 
+  onWatchReplay,
   isMultiplayer = false, 
   achievements,
   recentRaces = [],
@@ -50,8 +58,45 @@ export default function Dashboard({
   const theme = THEME_STYLES[activeTheme] || THEME_STYLES['carbon'];
   const isLight = activeTheme === 'carbon-light' || activeTheme === 'sakura';
 
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedSnippet, setCopiedSnippet] = useState(false);
+
   // Format the duration beautifully
   const durationSecs = (stats.elapsedMs / 1000).toFixed(1);
+
+  // Generate unique share URL starting with custom brand domain
+  const getUniqueShareUrl = () => {
+    try {
+      const payload = JSON.stringify({
+        wpm: stats.wpm,
+        acc: stats.accuracy,
+        cpm: stats.cpm,
+        err: stats.errors,
+        ts: Date.now()
+      });
+      const encoded = btoa(payload).replace(/=/g, '');
+      return `https://keyrush.io/race?share=${encoded}`;
+    } catch {
+      return `https://keyrush.io/race?wpm=${stats.wpm}&acc=${stats.accuracy}`;
+    }
+  };
+
+  const shareUrl = getUniqueShareUrl();
+  const shareText = `⚡ I just typed ${stats.wpm} WPM with ${stats.accuracy}% accuracy on KeyRush Speed Typing! Can you beat my record?`;
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleCopySnippet = () => {
+    const snippet = `🚀 KeyRush Speed Typing Result:\n⚡ Speed: ${stats.wpm} WPM\n🎯 Accuracy: ${stats.accuracy}%\n⚡ CPM: ${stats.cpm}\nChallenge me here: ${shareUrl}`;
+    navigator.clipboard.writeText(snippet);
+    setCopiedSnippet(true);
+    setTimeout(() => setCopiedSnippet(false), 2000);
+  };
 
   // Colors for recharts based on theme
   const chartGridColor = isLight ? '#cbd5e1' : '#1e293b';
@@ -75,14 +120,34 @@ export default function Dashboard({
             Your results have been successfully analyzed. Review your core typing metrics below.
           </p>
         </div>
-        <button
-          onClick={onRestart}
-          id="restart-button"
-          className={`flex items-center gap-2 px-5 py-3 ${theme.buttonAccent} font-bold rounded-xl transition-all duration-300 shadow-lg active:scale-95 whitespace-nowrap cursor-pointer`}
-        >
-          <RotateCcw size={16} />
-          <span>Start New Practice</span>
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          {onWatchReplay && (
+            <button
+              onClick={onWatchReplay}
+              id="watch-replay-button"
+              className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all duration-300 shadow-md hover:shadow-purple-500/25 active:scale-95 cursor-pointer"
+            >
+              <Activity size={16} />
+              <span>Watch Race Replay</span>
+            </button>
+          )}
+          <button
+            onClick={() => setIsShareModalOpen(true)}
+            id="share-result-button"
+            className="flex items-center gap-2 px-4 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-all duration-300 shadow-md hover:shadow-cyan-500/25 active:scale-95 cursor-pointer"
+          >
+            <Share2 size={16} />
+            <span>Share Result</span>
+          </button>
+          <button
+            onClick={onRestart}
+            id="restart-button"
+            className={`flex items-center gap-2 px-5 py-3 ${theme.buttonAccent} font-bold rounded-xl transition-all duration-300 shadow-lg active:scale-95 whitespace-nowrap cursor-pointer`}
+          >
+            <RotateCcw size={16} />
+            <span>Start New Practice</span>
+          </button>
+        </div>
       </div>
 
       {/* Grid of Key Metrics */}
@@ -325,6 +390,121 @@ export default function Dashboard({
 
       {/* Global Leaderboards Standings */}
       <GlobalLeaderboard activeTheme={activeTheme} />
+
+      {/* Share Result Modal */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className={`relative w-full max-w-md p-6 rounded-2xl border shadow-2xl ${theme.cardBg}`}>
+            <button
+              onClick={() => setIsShareModalOpen(false)}
+              className={`absolute top-4 right-4 p-2 rounded-lg hover:bg-slate-500/10 ${theme.mutedText} transition-colors cursor-pointer`}
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-xl bg-cyan-500/20 text-cyan-400">
+                <Share2 size={22} />
+              </div>
+              <div>
+                <h3 className={`text-lg font-extrabold ${theme.headerText}`}>Share Your Performance</h3>
+                <p className={`text-xs ${theme.mutedText}`}>Share your unique speed typing score with friends</p>
+              </div>
+            </div>
+
+            {/* Performance Stats Card */}
+            <div className={`grid grid-cols-3 gap-2 p-3.5 rounded-xl border mb-5 ${theme.subCardBg} ${theme.subCardBorder}`}>
+              <div className="text-center">
+                <span className={`text-[10px] font-bold block uppercase tracking-wider ${theme.mutedText}`}>SPEED</span>
+                <span className="text-xl font-black text-cyan-400">{stats.wpm} <span className="text-xs font-normal">WPM</span></span>
+              </div>
+              <div className="text-center">
+                <span className={`text-[10px] font-bold block uppercase tracking-wider ${theme.mutedText}`}>ACCURACY</span>
+                <span className="text-xl font-black text-emerald-400">{stats.accuracy}%</span>
+              </div>
+              <div className="text-center">
+                <span className={`text-[10px] font-bold block uppercase tracking-wider ${theme.mutedText}`}>CPM</span>
+                <span className="text-xl font-black text-purple-400">{stats.cpm}</span>
+              </div>
+            </div>
+
+            {/* Social Media Share Shortcuts */}
+            <div className="space-y-2 mb-5">
+              <label className={`text-xs font-bold uppercase tracking-wider block ${theme.mutedText}`}>
+                Direct Share to Social Media:
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#1DA1F2]/15 text-[#1DA1F2] border border-[#1DA1F2]/30 hover:bg-[#1DA1F2]/25 font-bold text-xs transition-colors"
+                >
+                  <ExternalLink size={13} />
+                  X / Twitter
+                </a>
+                <a
+                  href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#229ED9]/15 text-[#229ED9] border border-[#229ED9]/30 hover:bg-[#229ED9]/25 font-bold text-xs transition-colors"
+                >
+                  <Send size={13} />
+                  Telegram
+                </a>
+                <a
+                  href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#0A66C2]/15 text-[#0A66C2] border border-[#0A66C2]/30 hover:bg-[#0A66C2]/25 font-bold text-xs transition-colors"
+                >
+                  <ExternalLink size={13} />
+                  LinkedIn
+                </a>
+              </div>
+            </div>
+
+            {/* Unique Link Input Box */}
+            <div className="space-y-2 mb-4">
+              <label className={`text-xs font-bold uppercase tracking-wider block ${theme.mutedText}`}>
+                Your Unique Share URL:
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={shareUrl}
+                  className={`w-full p-2.5 text-xs font-mono rounded-xl border bg-slate-950/60 text-slate-200 focus:outline-none truncate border-slate-700/60`}
+                />
+                <button
+                  onClick={handleCopyLink}
+                  id="copy-share-url-button"
+                  className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap cursor-pointer transition-all active:scale-95 ${
+                    copiedLink 
+                      ? 'bg-emerald-600 text-white' 
+                      : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-md'
+                  }`}
+                >
+                  {copiedLink ? <Check size={14} /> : <Copy size={14} />}
+                  <span>{copiedLink ? 'Copied!' : 'Copy'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Chat Snippet Copy */}
+            <div>
+              <button
+                onClick={handleCopySnippet}
+                id="copy-snippet-button"
+                className={`w-full py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer ${theme.subCardBg} ${theme.subCardBorder} ${theme.headerText} hover:bg-slate-500/10 active:scale-98`}
+              >
+                {copiedSnippet ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                <span>{copiedSnippet ? 'Snippet Copied!' : 'Copy Chat Card Snippet'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

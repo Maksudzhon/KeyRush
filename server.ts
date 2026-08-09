@@ -231,14 +231,27 @@ app.get("/api/generate-text", async (req, res) => {
   }
 
   try {
-    const response = await client.models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: `Mavzu: "${theme}". Qiyinchilik darajasi: "${diff}". Iltimos, ushbu mavzu va darajaga mos keluvchi, aynan ${selectedLang} yozilgan, klaviaturada yozishni mashq qilish uchun matn generatsiya qiling.
+    let response;
+    try {
+      response = await client.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `Mavzu: "${theme}". Qiyinchilik darajasi: "${diff}". Iltimos, ushbu mavzu va darajaga mos keluvchi, aynan ${selectedLang} yozilgan, klaviaturada yozishni mashq qilish uchun matn generatsiya qiling.
 Talablar:
 1. Matn aniq 120 tadan 220 tagacha belgi (simvol)dan iborat bo'lsin.
-2. Hech qanday qo'shtirnoq, markdown formatlash, tushuntirishlar yoki ortiqcha belgi bo'lmasin. Faqat matnning o'zi qaytsin.
+2. Hech qanday qo'shtirnoq, markdown formatlash, tushuntirtinglar yoki ortiqcha belgi bo'lmasin. Faqat matnning o'zi qaytsin.
 3. Imloviy jihatdan mukammal va yozish uchun qiziqarli bo'lsin.`,
-    });
+      });
+    } catch (primaryErr: any) {
+      console.warn("Primary gemini-2.5-flash failed, attempting fallback model:", primaryErr?.message || primaryErr);
+      response = await client.models.generateContent({
+        model: "gemini-2.5-pro",
+        contents: `Mavzu: "${theme}". Qiyinchilik darajasi: "${diff}". Iltimos, ushbu mavzu va darajaga mos keluvchi, aynan ${selectedLang} yozilgan, klaviaturada yozishni mashq qilish uchun matn generatsiya qiling.
+Talablar:
+1. Matn aniq 120 tadan 220 tagacha belgi (simvol)dan iborat bo'lsin.
+2. Hech qanday qo'shtirnoq, markdown formatlash, tushuntirtinglar yoki ortiqcha belgi bo'lmasin. Faqat matnning o'zi qaytsin.
+3. Imloviy jihatdan mukammal va yozish uchun qiziqarli bo'lsin.`,
+      });
+    }
 
     const text = response.text?.trim() || "";
     if (text.length < 30) {
@@ -629,9 +642,16 @@ async function startApp() {
     });
   }
 
-  server.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server http://localhost:${PORT} portida muvaffaqiyatli ishga tushdi.`);
-  });
+  if (!process.env.VERCEL) {
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server http://localhost:${PORT} portida muvaffaqiyatli ishga tushdi.`);
+    });
+  }
 }
 
-startApp();
+if (!process.env.VERCEL) {
+  startApp();
+}
+
+export default app;
+

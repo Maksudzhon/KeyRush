@@ -25,7 +25,7 @@ export default function RaceProgressBar({ players, selfId, totalLength, activeTh
   return (
     <div 
       id="race-track-board"
-      className={`space-y-4 p-5 rounded-2xl border backdrop-blur-md ${styles.cardBg}`}
+      className={`RaceProgressBar space-y-4 p-5 rounded-2xl border backdrop-blur-md ${styles.cardBg}`}
     >
       <div className="flex items-center justify-between mb-2">
         <h3 className={`text-sm font-semibold tracking-wider uppercase flex items-center gap-1.5 ${styles.cardTitle}`}>
@@ -40,22 +40,27 @@ export default function RaceProgressBar({ players, selfId, totalLength, activeTh
       <div className="space-y-3">
         {sortedPlayers.map((player) => {
           const isSelf = player.id === selfId;
-          const progressPercent = totalLength > 0 
-            ? Math.min(100, Math.round((player.progress / totalLength) * 100)) 
+          const exactPercent = totalLength > 0 
+            ? Math.min(100, Math.max(0, (player.progress / totalLength) * 100)) 
             : 0;
+          const displayPercent = Math.round(exactPercent);
 
           // Check if player has warning/cheating suffix
           const isFlagged = player.name.includes('⚠️');
 
           return (
-            <div
+            <motion.div
               key={player.id}
+              layout
               id={`race-lane-${player.id}`}
-              className={`relative p-3 rounded-xl transition-all duration-300 border ${
+              className={`relative p-3 rounded-xl border transition-colors duration-300 ${
                 isSelf
                   ? `${styles.accentBg} ${styles.accentBorder}`
                   : `${styles.subCardBg} ${styles.subCardBorder}`
               }`}
+              transition={{
+                layout: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1.0] }
+              }}
             >
               {/* Lane Info */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs mb-2.5 gap-2">
@@ -82,7 +87,7 @@ export default function RaceProgressBar({ players, selfId, totalLength, activeTh
 
                 <div className={`flex items-center gap-2.5 sm:gap-4 font-mono text-xs flex-wrap ${styles.mutedText}`}>
                   <span>
-                    Progress: <strong className={`font-black ${styles.headerText}`}>{progressPercent}%</strong>
+                    Progress: <strong className={`font-black ${styles.headerText}`}>{displayPercent}%</strong>
                   </span>
                   <span className="flex items-center gap-1">
                     <Zap size={12} className="text-amber-500 shrink-0" />
@@ -109,7 +114,7 @@ export default function RaceProgressBar({ players, selfId, totalLength, activeTh
 
                 {/* Glowing Progress Fill */}
                 <motion.div
-                  className="absolute left-0 top-0 bottom-0 rounded-full"
+                  className="absolute left-0 top-0 bottom-0 rounded-full transition-all"
                   style={{
                     backgroundColor: player.color,
                     boxShadow: `0 0 12px ${player.color}90`,
@@ -117,30 +122,30 @@ export default function RaceProgressBar({ players, selfId, totalLength, activeTh
                   }}
                   initial={false}
                   animate={{ 
-                    width: `${progressPercent}%`,
+                    width: `${exactPercent}%`,
                   }}
                   transition={{ 
                     type: 'spring', 
-                    stiffness: 90, 
-                    damping: 18,
-                    mass: 0.4
+                    stiffness: 110, 
+                    damping: 20,
+                    mass: 0.3
                   }}
                 />
 
                 {/* Sliding Racing Rocket/Car Indicator */}
-                {progressPercent > 0 && (
+                {exactPercent > 0 && (
                   <motion.div
                     className="absolute -translate-y-1/2 top-1/2 z-10 pointer-events-none"
                     initial={false}
                     animate={{ 
-                      x: `calc(${progressPercent}% - 14px)`,
+                      x: `calc(${exactPercent}% - 14px)`,
                       scale: player.completed ? 1.25 : 1
                     }}
                     transition={{ 
                       type: 'spring', 
-                      stiffness: 90, 
-                      damping: 18,
-                      mass: 0.4
+                      stiffness: 110, 
+                      damping: 20,
+                      mass: 0.3
                     }}
                   >
                     <div 
@@ -155,7 +160,7 @@ export default function RaceProgressBar({ players, selfId, totalLength, activeTh
                   </motion.div>
                 )}
               </div>
-            </div>
+            </motion.div>
           );
         })}
       </div>

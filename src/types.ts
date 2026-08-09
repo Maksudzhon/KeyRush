@@ -20,6 +20,14 @@ export interface Room {
   createdAt: number;
 }
 
+export interface KeystrokeLog {
+  key: string;
+  timestampMs: number;
+  inputLength: number;
+  isCorrect: boolean;
+  expectedChar?: string;
+}
+
 export interface GameStats {
   wpm: number;
   accuracy: number;
@@ -28,6 +36,22 @@ export interface GameStats {
   elapsedMs: number;
   errorHeatmap: Record<string, number>;
   wpmHistory: { time: number; wpm: number; accuracy: number }[];
+  keystrokes?: KeystrokeLog[];
+}
+
+export interface RaceReplay {
+  id: string;
+  date: string;
+  text: string;
+  wpm: number;
+  accuracy: number;
+  cpm: number;
+  errors: number;
+  elapsedMs: number;
+  language?: string;
+  difficulty?: string;
+  category?: string;
+  keystrokes: KeystrokeLog[];
 }
 
 export interface TextItem {

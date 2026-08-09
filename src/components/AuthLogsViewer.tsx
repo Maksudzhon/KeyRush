@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { AuthLog } from '../types';
 import { THEME_STYLES } from '../types';
+import { safeFetchJson } from '../utils/api';
 
 interface AuthLogsViewerProps {
   activeTheme: string;
@@ -24,12 +25,12 @@ export default function AuthLogsViewer({ activeTheme, socket }: AuthLogsViewerPr
     setIsLoading(true);
     try {
       const res = await fetch('/api/auth/logs');
-      const data = await res.json();
+      const data = await safeFetchJson(res);
       if (data.success && Array.isArray(data.logs)) {
         setLogs(data.logs);
       }
     } catch (err) {
-      console.error('Failed to fetch DB auth logs:', err);
+      // Catch network or parse error silently
     } finally {
       setIsLoading(false);
     }

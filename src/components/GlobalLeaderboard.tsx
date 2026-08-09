@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Trophy, RefreshCw, Flame, Target, Award, ShieldCheck, Zap, User } from 'lucide-react';
 import { THEME_STYLES } from '../types';
+import { safeFetchJson } from '../utils/api';
 
 export interface LeaderboardUser {
   id: string;
@@ -32,7 +33,7 @@ export default function GlobalLeaderboard({
     setIsRefreshing(true);
     try {
       const res = await fetch('/api/leaderboard');
-      const data = await res.json();
+      const data = await safeFetchJson(res);
       if (data.success && Array.isArray(data.leaderboard)) {
         setUsers(data.leaderboard);
         setError(null);
@@ -40,7 +41,6 @@ export default function GlobalLeaderboard({
         setError('Could not load global rankings.');
       }
     } catch (err) {
-      console.error('Failed to fetch leaderboard:', err);
       setError('Server connection error.');
     } finally {
       setIsLoading(false);

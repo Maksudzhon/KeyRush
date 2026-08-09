@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Keyboard, AlertCircle } from 'lucide-react';
+import { Keyboard, AlertCircle, Smartphone, AlertTriangle } from 'lucide-react';
 
 interface TypingBoardProps {
   text: string;
@@ -13,6 +13,7 @@ interface TypingBoardProps {
   theme?: string;
   lastTypoHint?: { typed: string; expected: string; timestamp: number } | null;
   isShaking?: boolean;
+  consecutiveErrors?: number;
 }
 
 export default function TypingBoard({
@@ -27,27 +28,46 @@ export default function TypingBoard({
   theme = 'carbon',
   lastTypoHint = null,
   isShaking = false,
+  consecutiveErrors = 0,
 }: TypingBoardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Bind keydown listener when focused
+  // Auto-focus hidden input on mobile & desktop when isFocused changes
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Check if user is typing in an input element, textarea, or contenteditable element
+    if (isFocused && !completed && hiddenInputRef.current) {
       const activeElement = document.activeElement;
-      const tag = activeElement?.tagName ? activeElement.tagName.toLowerCase() : '';
-      const isInputOrTextArea = 
-        tag === 'input' || 
-        tag === 'textarea' || 
-        activeElement?.getAttribute('contenteditable') === 'true' ||
-        (activeElement as HTMLElement)?.isContentEditable;
+      if (activeElement && activeElement !== hiddenInputRef.current) {
+        const tag = activeElement.tagName ? activeElement.tagName.toLowerCase() : '';
+        if ((tag === 'input' || tag === 'textarea') && activeElement.id !== 'hidden-mobile-typing-input') {
+          return;
+        }
+      }
+      hiddenInputRef.current.focus({ preventScroll: true });
+    }
+  }, [isFocused, completed]);
 
-      if (isInputOrTextArea) {
-        return; // DO NOT process typing test keystrokes while user is typing in an input/textarea!
+  // Bind global keydown listener as fallback
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const activeElement = document.activeElement;
+      if (activeElement && activeElement === hiddenInputRef.current) {
+        // Let hidden textarea handle event directly to avoid duplicate dispatching
+        return;
+      }
+
+      if (activeElement) {
+        const tag = activeElement.tagName ? activeElement.tagName.toLowerCase() : '';
+        const isInputOrTextArea = 
+          (tag === 'input' || tag === 'textarea' || activeElement.getAttribute('contenteditable') === 'true') &&
+          activeElement.id !== 'hidden-mobile-typing-input';
+
+        if (isInputOrTextArea) {
+          return;
+        }
       }
 
       if (isFocused && !completed) {
-        // Prevent default space or backspace scroll behavior
         if (e.key === ' ' || e.key === 'Backspace') {
           e.preventDefault();
         }
@@ -55,15 +75,61 @@ export default function TypingBoard({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleGlobalKeyDown);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleGlobalKeyDown);
     };
   }, [isFocused, onKeyDown, completed]);
 
-  // Click handler to trigger focus
+  // Click handler to trigger focus and open mobile soft keyboard
   const handleContainerClick = () => {
     setIsFocused(true);
+    if (hiddenInputRef.current) {
+      hiddenInputRef.current.focus();
+    }
+  };
+
+  // Handle mobile keyboard typed text via input change
+  const handleHiddenInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    if (!val) return;
+
+    for (let i = 0; i < val.length; i++) {
+      const char = val[i];
+      const syntheticEvent = new KeyboardEvent('keydown', {
+        key: char,
+        bubbles: true,
+        cancelable: true,
+      });
+      onKeyDown(syntheticEvent);
+    }
+
+    if (hiddenInputRef.current) {
+      hiddenInputRef.current.value = '';
+    }
+  };
+
+  // Handle special mobile keys (Backspace, Enter, Space)
+  const handleHiddenInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      const syntheticEvent = new KeyboardEvent('keydown', {
+        key: 'Backspace',
+        bubbles: true,
+        cancelable: true,
+      });
+      onKeyDown(syntheticEvent);
+    } else if (e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      const syntheticEvent = new KeyboardEvent('keydown', {
+        key: ' ',
+        bubbles: true,
+        cancelable: true,
+      });
+      onKeyDown(syntheticEvent);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+    }
   };
 
   const isLightTheme = theme === 'sakura' || theme === 'carbon-light';
@@ -110,11 +176,29 @@ export default function TypingBoard({
         isShaking ? 'animate-shake border-rose-500/80 shadow-[0_0_25px_rgba(244,63,94,0.35)]' : ''
       } backdrop-blur-md`}
     >
+      {/* Invisible textarea to capture mobile software keyboard input */}
+      <textarea
+        ref={hiddenInputRef}
+        id="hidden-mobile-typing-input"
+        defaultValue=""
+        onChange={handleHiddenInputChange}
+        onKeyDown={handleHiddenInputKeyDown}
+        onFocus={() => setIsFocused(true)}
+        autoCapitalize="none"
+        autoCorrect="off"
+        autoComplete="off"
+        spellCheck={false}
+        inputMode="text"
+        tabIndex={0}
+        aria-label="Mobile typing software keyboard input"
+        className="absolute opacity-0 pointer-events-auto w-full h-full inset-0 z-10 cursor-pointer resize-none overflow-hidden"
+      />
+
       {/* Real-time Typo Mistake Hint Banner */}
       {lastTypoHint && !completed && isFocused && (
         <div 
           id="typo-hint-banner"
-          className="mb-3 px-3.5 py-2 rounded-xl bg-rose-950/80 border border-rose-500/60 text-rose-200 text-xs flex items-center justify-between gap-3 shadow-xl backdrop-blur-md animate-fade-in"
+          className="relative z-20 mb-3 px-3.5 py-2 rounded-xl bg-rose-950/80 border border-rose-500/60 text-rose-200 text-xs flex items-center justify-between gap-3 shadow-xl backdrop-blur-md animate-fade-in"
         >
           <div className="flex items-center gap-2">
             <AlertCircle size={16} className="text-rose-400 shrink-0 animate-pulse" />
@@ -128,11 +212,49 @@ export default function TypingBoard({
         </div>
       )}
 
+      {/* 5+ Consecutive Errors Warning Alert Toast */}
+      {consecutiveErrors >= 5 && !completed && isFocused && (
+        <div 
+          id="consecutive-errors-alert-toast"
+          className="relative z-20 mb-3 px-3.5 py-2.5 rounded-xl bg-amber-950/90 border border-amber-500/70 text-amber-200 text-xs flex items-center justify-between gap-3 shadow-xl backdrop-blur-md animate-bounce"
+        >
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={18} className="text-amber-400 shrink-0 animate-pulse" />
+            <span className="font-sans">
+              <strong className="text-amber-300 font-bold">{consecutiveErrors} Consecutive Typos!</strong> Take a breath and slow down for better accuracy.
+            </span>
+          </div>
+          <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40 shrink-0 uppercase tracking-wider">
+            Slow Down
+          </span>
+        </div>
+      )}
+
+      {/* Mobile Keyboard Trigger Quick Bar on small screens when focused */}
+      {isFocused && !completed && (
+        <div className="sm:hidden relative z-20 mb-2.5 flex items-center justify-between px-3 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 text-xs font-mono">
+          <span className="flex items-center gap-1.5">
+            <Smartphone size={13} className="animate-pulse text-cyan-400" />
+            <span>Mobile Keyboard Active</span>
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              hiddenInputRef.current?.focus();
+            }}
+            className="px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/40 hover:bg-cyan-500/30 text-[11px] font-bold text-cyan-200 transition-colors"
+          >
+            Re-open Keyboard
+          </button>
+        </div>
+      )}
+
       {/* Blurred "Click to focus" Overlay when not focused */}
       {!isFocused && !completed && (
         <div 
           id="focus-overlay"
-          className={`absolute inset-0 z-10 flex flex-col items-center justify-center backdrop-blur-sm transition-all duration-300 ${
+          className={`absolute inset-0 z-30 flex flex-col items-center justify-center backdrop-blur-sm transition-all duration-300 ${
             isLightTheme ? 'bg-white/90' : 'bg-slate-950/80'
           }`}
         >
@@ -148,7 +270,7 @@ export default function TypingBoard({
               : 'bg-slate-900 border-slate-700/50 text-cyan-400'
           }`}>
             <Keyboard size={16} />
-            <span>Click to start typing practice</span>
+            <span>Tap to start typing practice</span>
           </div>
         </div>
       )}
@@ -173,12 +295,16 @@ export default function TypingBoard({
                 : theme === 'carbon-light' ? 'text-indigo-700 font-extrabold'
                 : 'text-emerald-400 font-bold';
             } else {
-              // Incorrect character style
-              charClass = theme === 'cyberpunk' ? 'text-yellow-400 bg-fuchsia-950/50 border-b-2 border-yellow-400'
-                : theme === 'matrix' ? 'text-black bg-red-600 border-b-2 border-red-500 font-extrabold'
-                : theme === 'sakura' ? 'text-red-600 bg-red-100 border-b-2 border-red-500 font-extrabold'
-                : theme === 'carbon-light' ? 'text-rose-600 bg-rose-100 border-b-2 border-rose-500 font-extrabold'
-                : 'text-rose-500 bg-rose-950/30 border-b-2 border-rose-500';
+              // Incorrect character style (typo with subtle visual highlight & shadow pulse)
+              charClass = theme === 'cyberpunk' 
+                ? 'text-yellow-300 bg-fuchsia-950/80 border-b-2 border-yellow-400 font-extrabold shadow-[0_0_10px_rgba(234,179,8,0.5)] ring-1 ring-yellow-400/40 animate-pulse px-0.5 rounded-sm'
+                : theme === 'matrix' 
+                ? 'text-red-200 bg-red-950/90 border-b-2 border-red-500 font-black shadow-[0_0_10px_rgba(239,68,68,0.6)] ring-1 ring-red-500/50 animate-pulse px-0.5 rounded-sm'
+                : theme === 'sakura' 
+                ? 'text-rose-700 bg-rose-100/90 border-b-2 border-rose-500 font-black shadow-[0_0_8px_rgba(244,63,94,0.35)] ring-1 ring-rose-400/50 animate-pulse px-0.5 rounded-sm'
+                : theme === 'carbon-light' 
+                ? 'text-rose-700 bg-rose-100/90 border-b-2 border-rose-500 font-black shadow-[0_0_8px_rgba(244,63,94,0.35)] ring-1 ring-rose-400/50 animate-pulse px-0.5 rounded-sm'
+                : 'text-rose-400 bg-rose-950/60 border-b-2 border-rose-500/80 font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-500/40 animate-pulse px-0.5 rounded-sm';
             }
           } else {
             // Untyped character style

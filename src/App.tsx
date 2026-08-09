@@ -4,10 +4,10 @@ import {
   Rocket, Trophy, Target, Activity, Clock, RotateCcw, 
   Award, Keyboard, Users, Volume2, VolumeX, Copy, 
   Plus, Sparkles, Globe, Code, Flame, Send, CheckCircle, FlameKindling, Cpu, ShieldCheck,
-  Ghost, Settings, Wifi, LogOut, Check, HelpCircle, Mail, Chrome, Gamepad2, Info, Brain, Menu, X, Sliders, AlertCircle, Trash2, AlertTriangle
+  Ghost, Settings, Wifi, LogOut, Check, HelpCircle, Mail, Chrome, Gamepad2, Info, Brain, Menu, X, Sliders, AlertCircle, Trash2, AlertTriangle, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
-import { Player, Room, GameStats, Achievement, UserStats, TextItem, UserProfile, THEME_STYLES } from './types';
+import { Player, Room, GameStats, Achievement, UserStats, TextItem, UserProfile, THEME_STYLES, RaceReplay } from './types';
 import { useTypingEngine } from './hooks/useTypingEngine';
 import { SwitchType, playSwitchSound } from './utils/soundEngine';
 import { TYPING_TEXTS, getRandomText } from './data/texts';
@@ -20,6 +20,8 @@ import QuizBoard from './components/QuizBoard';
 import GuideSection from './components/GuideSection';
 import TroubleshootSection from './components/TroubleshootSection';
 import GlobalLeaderboard from './components/GlobalLeaderboard';
+import RaceReplayModal from './components/RaceReplayModal';
+import { safeFetchJson } from './utils/api';
 
 // Sound choices
 const SWITCHES: { value: SwitchType; label: string; desc: string }[] = [
@@ -140,7 +142,7 @@ export default function App() {
         },
         body: JSON.stringify({ userId: userProfile?.id })
       });
-      const data = await res.json();
+      const data = await safeFetchJson(res);
       if (data.success) {
         localStorage.removeItem('keyrush_auth_token');
         localStorage.removeItem('keyrush_user_profile');
@@ -151,6 +153,17 @@ export default function App() {
         setDeleteAccountStep(1);
         setDeleteConfirmInput('');
         showToast('Account permanently deleted from database.', 'info');
+      } else if (userProfile) {
+        // Fallback local account deletion if server is unreachable
+        localStorage.removeItem('keyrush_auth_token');
+        localStorage.removeItem('keyrush_user_profile');
+        localStorage.removeItem('keyrush_user_stats');
+        setUserProfile(null);
+        setPlayerName(`Racer-${Math.floor(100 + Math.random() * 899)}`);
+        setIsDeleteAccountModalOpen(false);
+        setDeleteAccountStep(1);
+        setDeleteConfirmInput('');
+        showToast('Account permanently removed.', 'info');
       } else {
         showToast(data.error || 'Failed to delete account.', 'error');
       }
@@ -233,6 +246,21 @@ export default function App() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Saved Race Replays History State
+  const [savedReplays, setSavedReplays] = useState<RaceReplay[]>(() => {
+    const saved = localStorage.getItem('keyrush_race_replays');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Error loading saved race replays");
+      }
+    }
+    return [];
+  });
+  const [activeReplay, setActiveReplay] = useState<RaceReplay | null>(null);
+  const [isReplayModalOpen, setIsReplayModalOpen] = useState(false);
+
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     if (toastTimeoutRef.current) {
       clearTimeout(toastTimeoutRef.current);
@@ -250,6 +278,70 @@ export default function App() {
       }
     };
   }, []);
+
+  // Desktop and Mobile Navigation Horizontal Scroll Controls
+  const desktopNavRef = useRef<HTMLElement | null>(null);
+  const mobileNavRef = useRef<HTMLDivElement | null>(null);
+  const [canDesktopScrollLeft, setCanDesktopScrollLeft] = useState(false);
+  const [canDesktopScrollRight, setCanDesktopScrollRight] = useState(false);
+  const [canMobileScrollLeft, setCanMobileScrollLeft] = useState(false);
+  const [canMobileScrollRight, setCanMobileScrollRight] = useState(false);
+
+  const checkDesktopNavScroll = useCallback(() => {
+    if (desktopNavRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = desktopNavRef.current;
+      setCanDesktopScrollLeft(scrollLeft > 4);
+      setCanDesktopScrollRight(scrollLeft < scrollWidth - clientWidth - 4);
+    }
+  }, []);
+
+  const checkMobileNavScroll = useCallback(() => {
+    if (mobileNavRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = mobileNavRef.current;
+      setCanMobileScrollLeft(scrollLeft > 4);
+      setCanMobileScrollRight(scrollLeft < scrollWidth - clientWidth - 4);
+    }
+  }, []);
+
+  useEffect(() => {
+    const desktopEl = desktopNavRef.current;
+    const mobileEl = mobileNavRef.current;
+    
+    checkDesktopNavScroll();
+    checkMobileNavScroll();
+
+    if (desktopEl) {
+      desktopEl.addEventListener('scroll', checkDesktopNavScroll, { passive: true });
+    }
+    if (mobileEl) {
+      mobileEl.addEventListener('scroll', checkMobileNavScroll, { passive: true });
+    }
+
+    window.addEventListener('resize', checkDesktopNavScroll);
+    window.addEventListener('resize', checkMobileNavScroll);
+
+    // Initial check after render
+    const timer = setTimeout(() => {
+      checkDesktopNavScroll();
+      checkMobileNavScroll();
+    }, 150);
+
+    return () => {
+      clearTimeout(timer);
+      if (desktopEl) desktopEl.removeEventListener('scroll', checkDesktopNavScroll);
+      if (mobileEl) mobileEl.removeEventListener('scroll', checkMobileNavScroll);
+      window.removeEventListener('resize', checkDesktopNavScroll);
+      window.removeEventListener('resize', checkMobileNavScroll);
+    };
+  }, [checkDesktopNavScroll, checkMobileNavScroll, savedReplays]);
+
+  const scrollNav = (target: 'desktop' | 'mobile', direction: 'left' | 'right') => {
+    const el = target === 'desktop' ? desktopNavRef.current : mobileNavRef.current;
+    if (el) {
+      const amount = direction === 'left' ? -220 : 220;
+      el.scrollBy({ left: amount, behavior: 'smooth' });
+    }
+  };
 
   // Multiplayer States
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -288,8 +380,17 @@ export default function App() {
     getStats,
     wpmHistory,
     lastTypoHint,
-    isShaking
+    isShaking,
+    consecutiveErrors,
+    consecutiveErrorAlert,
   } = useTypingEngine(currentText, soundType);
+
+  // Trigger alert toast if user reaches 5 consecutive typos
+  useEffect(() => {
+    if (consecutiveErrorAlert && consecutiveErrorAlert.count >= 5) {
+      showToast(`⚠️ ${consecutiveErrorAlert.count} consecutive typos! Take a breath and slow down to regain precision.`, 'error');
+    }
+  }, [consecutiveErrorAlert, showToast]);
 
   // Generate or load standard text
   const loadText = useCallback(async (aiTheme?: string) => {
@@ -298,9 +399,13 @@ export default function App() {
       setIsGeneratingAiText(true);
       try {
         const response = await fetch(`/api/generate-text?theme=${encodeURIComponent(aiTheme)}&lang=${selectedLang}&diff=${selectedDifficulty}`);
-        const data = await response.json();
-        setCurrentText(data.text);
-        setTextCategory(`AI Topic Engine: ${data.theme}`);
+        const data = await safeFetchJson(response);
+        if (data.text) {
+          setCurrentText(data.text);
+          setTextCategory(`AI Topic Engine: ${data.theme || aiTheme}`);
+        } else {
+          throw new Error("No text returned");
+        }
       } catch (err) {
         console.error("AI text fetch failed, using fallback:", err);
         const fallback = getRandomText(selectedLang, selectedDifficulty);
@@ -324,7 +429,7 @@ export default function App() {
       fetch('/api/auth/me', {
         headers: { Authorization: `Bearer ${token}` }
       })
-      .then(res => res.json())
+      .then(res => safeFetchJson(res))
       .then(data => {
         if (data.success && data.user) {
           setUserProfile(data.user);
@@ -334,7 +439,7 @@ export default function App() {
           }
         }
       })
-      .catch(err => console.error("DB Auth Session fetch error:", err));
+      .catch(() => {});
     }
 
     const savedStats = localStorage.getItem('keyrush_user_stats');
@@ -359,6 +464,22 @@ export default function App() {
         }));
       } catch (e) {
         console.error("Error loading achievements");
+      }
+    }
+
+    // Check for shared score in URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const shareParam = urlParams.get('share');
+    if (shareParam) {
+      try {
+        const decoded = JSON.parse(atob(shareParam));
+        if (decoded.wpm) {
+          setTimeout(() => {
+            showToast(`⚡ Shared Performance Challenge: ${decoded.wpm} WPM (${decoded.acc || 100}% Accuracy)!`, 'info');
+          }, 800);
+        }
+      } catch {
+        // Invalid base64 string, ignore
       }
     }
 
@@ -394,11 +515,13 @@ export default function App() {
     const checkPing = async () => {
       try {
         const start = performance.now();
-        await fetch('/api/health');
-        const end = performance.now();
-        setPingMs(Math.round(end - start));
-      } catch (err) {
-        console.error("Ping error", err);
+        const res = await fetch('/api/health');
+        if (res.ok) {
+          const end = performance.now();
+          setPingMs(Math.round(end - start));
+        }
+      } catch {
+        // Silently swallow ping network latency check failures
       }
     };
     checkPing();
@@ -411,10 +534,16 @@ export default function App() {
     setIsFetchingRooms(true);
     try {
       const res = await fetch('/api/active-rooms');
-      const data = await res.json();
-      setActiveRoomsList(data);
+      const data = await safeFetchJson(res);
+      if (Array.isArray(data)) {
+        setActiveRoomsList(data);
+      } else if (data && Array.isArray(data.rooms)) {
+        setActiveRoomsList(data.rooms);
+      } else {
+        setActiveRoomsList([]);
+      }
     } catch (e) {
-      console.error("Error fetching rooms list:", e);
+      setActiveRoomsList([]);
     } finally {
       setIsFetchingRooms(false);
     }
@@ -782,13 +911,39 @@ export default function App() {
 
   // Copy invitation link to clipboard
   const copyInviteLink = () => {
-    const url = `${window.location.origin}/?room=${roomId}`;
+    const url = `https://keyrush.io/?room=${roomId}`;
     navigator.clipboard.writeText(url);
-    showToast(`Xona taklif havolasi buferga ko'chirildi!`, 'success');
+    showToast(`Room invitation link copied: ${url}`, 'success');
   };
 
   // Save game result locally and calculate achievements
   const saveGameResult = (stats: GameStats, isMulti: boolean = false) => {
+    // Record race replay history if keystrokes were captured
+    if (stats.keystrokes && stats.keystrokes.length > 0) {
+      const replayItem: RaceReplay = {
+        id: `replay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        date: new Date().toLocaleString(),
+        text: currentText,
+        wpm: stats.wpm,
+        accuracy: stats.accuracy,
+        cpm: stats.cpm,
+        errors: stats.errors,
+        elapsedMs: stats.elapsedMs,
+        language: isMulti ? 'multiplayer' : selectedLang,
+        difficulty: selectedDifficulty,
+        category: textCategory,
+        keystrokes: stats.keystrokes,
+      };
+
+      setSavedReplays((prev) => {
+        const nextReplays = [replayItem, ...prev].slice(0, 30);
+        localStorage.setItem('keyrush_race_replays', JSON.stringify(nextReplays));
+        return nextReplays;
+      });
+
+      setActiveReplay(replayItem);
+    }
+
     setUserStats((prev) => {
       const completed = prev.racesCompleted + 1;
       const totalWpm = prev.averageWpm * prev.racesCompleted + stats.wpm;
@@ -1040,12 +1195,14 @@ export default function App() {
             </div>
           </div>
 
-          {/* Desktop Navigation Tabs */}
-          <nav className={`hidden md:flex items-center gap-1.5 p-1.5 rounded-2xl border transition-all duration-300 shrink overflow-x-auto scrollbar-none max-w-full ${
-            isLightTheme 
-              ? 'bg-slate-100/90 border-slate-200 text-slate-600' 
-              : 'bg-slate-900/90 border-slate-800 text-slate-400'
-          }`}>
+          {/* Desktop Navigation Tabs (Visible on lg: 1024px and wider) */}
+          <nav
+            className={`hidden lg:flex items-center gap-1.5 p-1.5 rounded-2xl border transition-all duration-300 shrink-0 ${
+              isLightTheme 
+                ? 'bg-slate-100/90 border-slate-200 text-slate-600' 
+                : 'bg-slate-900/90 border-slate-800 text-slate-400'
+            }`}
+          >
             <button
               onClick={() => { setActiveTab('guide'); leaveMultiplayer(); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold tracking-tight transition-all cursor-pointer shrink-0 ${
@@ -1114,6 +1271,24 @@ export default function App() {
                 NEW
               </span>
             </button>
+            {savedReplays.length > 0 && (
+              <button
+                onClick={() => {
+                  if (savedReplays.length > 0) {
+                    setActiveReplay(savedReplays[0]);
+                    setIsReplayModalOpen(true);
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold tracking-tight transition-all cursor-pointer shrink-0 border ${
+                  isLightTheme
+                    ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
+                    : 'bg-purple-950/40 text-purple-300 border-purple-500/30 hover:bg-purple-900/50'
+                }`}
+              >
+                <Activity size={14} className="text-purple-400" />
+                <span>Replays ({savedReplays.length})</span>
+              </button>
+            )}
           </nav>
 
           {/* Theme Selector, Sound Preset & Auth status */}
@@ -1261,65 +1436,88 @@ export default function App() {
 
         </div>
 
-        {/* MOBILE SUB-HEADER NAVIGATION BAR (Shown on md:hidden) */}
-        <div className={`md:hidden border-t px-2 py-1.5 overflow-x-auto no-scrollbar flex items-center gap-1 transition-all ${
-          isLightTheme ? 'bg-slate-100/90 border-slate-200' : 'bg-slate-950/90 border-slate-850'
+        {/* MOBILE & TABLET SUB-HEADER MODE NAVIGATION BAR (Shown on screens < 1024px) */}
+        <div className={`lg:hidden border-t px-3 py-2 transition-all relative ${
+          isLightTheme ? 'bg-slate-100/95 border-slate-200' : 'bg-slate-950/95 border-slate-800'
         }`}>
-          <button
-            onClick={() => { setActiveTab('guide'); leaveMultiplayer(); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'guide'
-                ? isLightTheme ? 'bg-white text-slate-900 shadow-sm font-bold' : 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                : isLightTheme ? 'text-slate-600' : 'text-slate-400'
-            }`}
-          >
-            <Info size={13} />
-            <span>Guide</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('single'); leaveMultiplayer(); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'single'
-                ? isLightTheme ? 'bg-white text-slate-900 shadow-sm font-bold' : 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                : isLightTheme ? 'text-slate-600' : 'text-slate-400'
-            }`}
-          >
-            <Keyboard size={13} />
-            <span>Single</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('bot'); leaveMultiplayer(); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'bot'
-                ? isLightTheme ? 'bg-white text-slate-900 shadow-sm font-bold' : 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                : isLightTheme ? 'text-slate-600' : 'text-slate-400'
-            }`}
-          >
-            <Cpu size={13} />
-            <span>Bots</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('multi'); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'multi'
-                ? isLightTheme ? 'bg-white text-slate-900 shadow-sm font-bold' : 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                : isLightTheme ? 'text-slate-600' : 'text-slate-400'
-            }`}
-          >
-            <Users size={13} />
-            <span>Multiplayer</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('quiz'); leaveMultiplayer(); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'quiz'
-                ? isLightTheme ? 'bg-pink-500 text-white font-bold shadow-sm' : 'bg-pink-500 text-slate-950 font-bold shadow-sm'
-                : isLightTheme ? 'text-pink-600' : 'text-pink-400'
-            }`}
-          >
-            <Brain size={13} className="animate-pulse" />
-            <span>Quiz Test</span>
-          </button>
+          <div className="max-w-7xl mx-auto overflow-x-auto scrollbar-none flex items-center gap-2 scroll-smooth w-full py-0.5">
+            <button
+              onClick={() => { setActiveTab('guide'); leaveMultiplayer(); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all shrink-0 ${
+                activeTab === 'guide'
+                  ? isLightTheme ? 'bg-white text-slate-900 shadow-sm' : 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                  : isLightTheme ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Info size={14} />
+              <span>Guide</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('single'); leaveMultiplayer(); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all shrink-0 ${
+                activeTab === 'single'
+                  ? isLightTheme ? 'bg-white text-slate-900 shadow-sm' : 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                  : isLightTheme ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Keyboard size={14} />
+              <span>Single Player</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('bot'); leaveMultiplayer(); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all shrink-0 ${
+                activeTab === 'bot'
+                  ? isLightTheme ? 'bg-white text-slate-900 shadow-sm' : 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                  : isLightTheme ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Cpu size={14} />
+              <span>Bot Arena</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('multi'); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all shrink-0 ${
+                activeTab === 'multi'
+                  ? isLightTheme ? 'bg-white text-slate-900 shadow-sm' : 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                  : isLightTheme ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Users size={14} />
+              <span>Multiplayer</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('quiz'); leaveMultiplayer(); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all shrink-0 ${
+                activeTab === 'quiz'
+                  ? isLightTheme ? 'bg-pink-500 text-white font-bold shadow-sm' : 'bg-pink-500 text-slate-950 font-bold shadow-sm'
+                  : isLightTheme ? 'text-pink-600 hover:bg-pink-100/50' : 'text-pink-400 hover:bg-pink-950/30'
+              }`}
+            >
+              <Brain size={14} className="animate-pulse" />
+              <span>Quiz</span>
+              <span className="text-[8px] bg-pink-500/20 text-pink-400 px-1 py-0.5 rounded font-extrabold uppercase">
+                NEW
+              </span>
+            </button>
+            {savedReplays.length > 0 && (
+              <button
+                onClick={() => {
+                  if (savedReplays.length > 0) {
+                    setActiveReplay(savedReplays[0]);
+                    setIsReplayModalOpen(true);
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border shrink-0 cursor-pointer transition-all ${
+                  isLightTheme 
+                    ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100' 
+                    : 'bg-purple-950/60 text-purple-300 border-purple-500/40 hover:bg-purple-900/60'
+                }`}
+              >
+                <Activity size={14} className="text-purple-400" />
+                <span>Replays ({savedReplays.length})</span>
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1392,6 +1590,24 @@ export default function App() {
               </div>
             </div>
 
+            {/* Direct Replays Access */}
+            {savedReplays.length > 0 && (
+              <div className="pt-2 border-t border-slate-800/40">
+                <span className="text-[11px] font-bold text-slate-400 block mb-2">Saved Race Replays:</span>
+                <button
+                  onClick={() => {
+                    setActiveReplay(savedReplays[0]);
+                    setIsReplayModalOpen(true);
+                    setIsMobileDrawerOpen(false);
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-purple-950/60 border border-purple-500/40 text-purple-300 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer hover:bg-purple-900/50"
+                >
+                  <Activity size={14} className="text-purple-400" />
+                  <span>View Saved Replays ({savedReplays.length})</span>
+                </button>
+              </div>
+            )}
+
             {/* Virtual Keyboard toggle on mobile */}
             <div className="pt-2 flex items-center justify-between border-t border-slate-800/40">
               <span className="text-xs font-bold text-slate-300">Virtual Keyboard Display:</span>
@@ -1446,7 +1662,8 @@ export default function App() {
               {completed ? (
                 <Dashboard 
                   stats={getStats()} 
-                  onRestart={handleRestart} 
+                  onRestart={handleRestart}
+                  onWatchReplay={() => setIsReplayModalOpen(true)}
                   achievements={achievements}
                   recentRaces={userStats.recentRaces}
                   activeTheme={activeTheme}
@@ -1518,6 +1735,7 @@ export default function App() {
                         theme={activeTheme}
                         lastTypoHint={lastTypoHint}
                         isShaking={isShaking}
+                        consecutiveErrors={consecutiveErrors}
                       />
                     )}
 
@@ -1859,6 +2077,7 @@ export default function App() {
                           theme={activeTheme}
                           lastTypoHint={lastTypoHint}
                           isShaking={isShaking}
+                          consecutiveErrors={consecutiveErrors}
                         />
                       </div>
                     )}
@@ -2447,6 +2666,7 @@ export default function App() {
                           theme={activeTheme}
                           lastTypoHint={lastTypoHint}
                           isShaking={isShaking}
+                          consecutiveErrors={consecutiveErrors}
                         />
                       </div>
                     )}
@@ -3174,6 +3394,23 @@ export default function App() {
           } animate-pulse`} />
           <span className="font-bold">{pingMs} ms</span>
         </div>
+      )}
+
+      {/* Race Replay Modal */}
+      {isReplayModalOpen && activeReplay && (
+        <RaceReplayModal
+          replay={activeReplay}
+          isOpen={isReplayModalOpen}
+          onClose={() => setIsReplayModalOpen(false)}
+          soundType={soundType}
+          onTrySameText={(text) => {
+            setCurrentText(text);
+            resetEngine();
+            setActiveTab('single');
+            setIsBoardFocused(true);
+            showToast("Loaded replay passage for practice!", "info");
+          }}
+        />
       )}
 
       {/* 3. FOOTER SECTION */}
